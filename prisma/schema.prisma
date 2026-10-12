@@ -1,0 +1,311 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
+}
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id String @id
+  name String
+  email String @unique
+  emailVerified Boolean @default(false)
+  image String?
+  role String @default("MEMBER")
+  status String @default("PENDING")
+  mustChangePassword Boolean @default(false)
+  applicationStatement String @default("")
+  pendingInviteHash String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sessions Session[]
+  accounts Account[]
+  applications Application[] @relation("Applicant")
+  reviewedApplications Application[] @relation("Reviewer")
+  invitations AdminInvitation[]
+  resources Resource[]
+  posts Post[]
+  comments ResourceComment[]
+  replies PostReply[]
+  projects Project[]
+  projectTasks ProjectSyncTask[]
+  projectComments ProjectComment[]
+  logs AuditLog[]
+}
+model Session {
+  id String @id
+  expiresAt DateTime
+  token String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+model Account {
+  id String @id
+  accountId String
+  providerId String
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken String?
+  refreshToken String?
+  idToken String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope String?
+  password String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId])
+}
+model Verification {
+  id String @id
+  identifier String
+  value String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([identifier])
+}
+model Application {
+  id String @id @default(cuid())
+  userId String
+  user User @relation("Applicant", fields: [userId], references: [id])
+  statement String
+  status String @default("PENDING")
+  reason String?
+  reviewerId String?
+  reviewer User? @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+model AdminInvitation {
+  id String @id @default(cuid())
+  email String
+  tokenHash String @unique
+  expiresAt DateTime
+  usedAt DateTime?
+  revokedAt DateTime?
+  creatorId String
+  creator User @relation(fields: [creatorId], references: [id])
+  createdAt DateTime @default(now())
+}
+model Category {
+  id String @id @default(cuid())
+  name String
+  kind String
+  resources Resource[]
+  posts Post[]
+  @@unique([name, kind])
+}
+model Tag {
+  id String @id @default(cuid())
+  name String @unique
+  resources Resource[]
+}
+model StoredFile {
+  id String @id @default(cuid())
+  key String @unique
+  name String
+  mime String
+  size Int
+  createdAt DateTime @default(now())
+  resource Resource?
+  attachment Attachment?
+  projectAttachment ProjectCommentAttachment?
+}
+model Resource {
+  id String @id @default(cuid())
+  title String
+  description String
+  area String
+  categoryId String
+  category Category @relation(fields: [categoryId], references: [id])
+  tags Tag[]
+  authorId String
+  author User @relation(fields: [authorId], references: [id])
+  fileId String @unique
+  file StoredFile @relation(fields: [fileId], references: [id])
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  comments ResourceComment[]
+  attachments Attachment[]
+  @@index([area, deletedAt, createdAt])
+}
+model Post {
+  id String @id @default(cuid())
+  title String
+  body String
+  categoryId String
+  category Category @relation(fields: [categoryId], references: [id])
+  authorId String
+  author User @relation(fields: [authorId], references: [id])
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  replies PostReply[]
+  attachments Attachment[]
+  @@index([deletedAt, createdAt])
+}
+model ResourceComment {
+  id String @id @default(cuid())
+  body String
+  authorId String
+  author User @relation(fields: [authorId], references: [id])
+  resourceId String
+  resource Resource @relation(fields: [resourceId], references: [id])
+  parentId String?
+  parent ResourceComment? @relation("CommentThread", fields: [parentId], references: [id])
+  children ResourceComment[] @relation("CommentThread")
+  attachments Attachment[]
+  pdfFileId String?
+  pdfPage Int?
+  resolvedAt DateTime?
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([resourceId, createdAt])
+  @@index([resourceId, pdfFileId, parentId, deletedAt, createdAt])
+}
+model PostReply {
+  id String @id @default(cuid())
+  body String
+  authorId String
+  author User @relation(fields: [authorId], references: [id])
+  postId String
+  post Post @relation(fields: [postId], references: [id])
+  parentId String?
+  parent PostReply? @relation("ReplyThread", fields: [parentId], references: [id])
+  children PostReply[] @relation("ReplyThread")
+  attachments Attachment[]
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([postId, createdAt])
+}
+model Attachment {
+  id String @id @default(cuid())
+  fileId String @unique
+  file StoredFile @relation(fields: [fileId], references: [id])
+  resourceId String?
+  resource Resource? @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  postId String?
+  post Post? @relation(fields: [postId], references: [id], onDelete: Restrict)
+  commentId String?
+  comment ResourceComment? @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  replyId String?
+  reply PostReply? @relation(fields: [replyId], references: [id], onDelete: Restrict)
+  position Int @default(0)
+  @@index([resourceId, position])
+  @@index([postId, position])
+  @@index([commentId, position])
+  @@index([replyId, position])
+}
+model AuditLog {
+  id String @id @default(cuid())
+  actorId String
+  actor User @relation(fields: [actorId], references: [id])
+  action String
+  targetId String
+  reason String?
+  createdAt DateTime @default(now())
+}
+model RateLimit {
+  id String @id
+  key String @unique
+  count Int
+  lastRequest BigInt
+}
+
+model Project {
+  id String @id @default(cuid())
+  title String
+  description String
+  course String
+  tags String @default("")
+  authorId String
+  author User @relation(fields: [authorId], references: [id])
+  repositoryName String? @unique
+  currentVersionId String? @unique
+  currentVersion ProjectVersion? @relation("CurrentProjectVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions ProjectVersion[] @relation("ProjectVersions")
+  tasks ProjectSyncTask[]
+  comments ProjectComment[]
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([deletedAt, createdAt])
+  @@index([authorId, deletedAt, updatedAt])
+}
+model ProjectVersion {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation("ProjectVersions", fields: [projectId], references: [id])
+  currentFor Project? @relation("CurrentProjectVersion")
+  taskId String @unique
+  number Int
+  message String
+  commitSha String
+  fileCount Int
+  size Int
+  filesJson String @default("[]")
+  createdAt DateTime @default(now())
+  @@unique([projectId, number])
+  @@unique([projectId, commitSha])
+}
+model ProjectSyncTask {
+  id String @id @default(cuid())
+  requestId String @unique
+  projectId String
+  project Project @relation(fields: [projectId], references: [id])
+  actorId String
+  actor User @relation(fields: [actorId], references: [id])
+  uploadKey String?
+  status String @default("QUEUED")
+  error String?
+  versionMessage String
+  attempts Int @default(0)
+  cleanedAt DateTime?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, createdAt])
+  @@index([projectId, createdAt])
+}
+model ProjectWorkerLease {
+  id String @id
+  token String
+  expiresAt DateTime
+}
+model ProjectComment {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id])
+  authorId String
+  author User @relation(fields: [authorId], references: [id])
+  body String
+  parentId String?
+  parent ProjectComment? @relation("ProjectCommentThread", fields: [parentId], references: [id], onDelete: Restrict)
+  children ProjectComment[] @relation("ProjectCommentThread")
+  attachments ProjectCommentAttachment[]
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([projectId, deletedAt, createdAt])
+}
+model ProjectCommentAttachment {
+  id String @id @default(cuid())
+  commentId String
+  comment ProjectComment @relation(fields: [commentId], references: [id])
+  fileId String @unique
+  file StoredFile @relation(fields: [fileId], references: [id])
+  position Int @default(0)
+  @@index([commentId, position])
+}
+

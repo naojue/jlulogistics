@@ -1,0 +1,18 @@
+.control {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.error {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: min(260px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--danger);
+  background: var(--surface);
+  font-size: 12px;
+}

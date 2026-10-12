@@ -1,0 +1,67 @@
+# Dependencies and generated files
+node_modules/
+.next/
+.next-*/
+out/
+dist/
+coverage/
+src/generated/
+public/vendor/pdfjs/
+next-env.d.ts
+*.tsbuildinfo
+
+# Local configuration; only the public template belongs in Git
+.env
+.env.*
+.[eE][nN][vV]
+.[eE][nN][vV].*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+.npmrc
+.netrc
+.pypirc
+.git-credentials
+.envrc
+.ssh/
+.aws/
+.azure/
+.kube/
+id_rsa
+id_ed25519
+
+# Community data, backups, packages and local tooling
+data/
+backups/
+releases/
+.tools/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Test output and screenshots of live community metadata
+test-results/
+test-results-*/
+playwright-report/
+docs/design/ui-live/
+
+# Logs and editor / operating-system files
+*.log
+.cache/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo

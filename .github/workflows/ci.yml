@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Types, tests and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      DATABASE_URL: file:${{ runner.temp }}/zhiye-ci/build.db
+      STORAGE_DIR: ${{ runner.temp }}/zhiye-ci/files
+      PROJECT_TEMP_DIR: ${{ runner.temp }}/zhiye-ci/project-tasks
+      BETTER_AUTH_URL: http://127.0.0.1:3000
+      BETTER_AUTH_SECRET: ci-only-placeholder-secret-at-least-thirty-two-characters
+      SMTP_HOST: 127.0.0.1
+      SMTP_PORT: "9"
+      SMTP_SECURE: "false"
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      MAIL_FROM: CI <ci@example.test>
+      INITIAL_ADMIN_EMAIL: admin@example.test
+      INITIAL_ADMIN_PASSWORD: ci-only-placeholder-not-a-production-password
+      GITHUB_ORGANIZATION: ""
+      GITHUB_APP_ID: ""
+      GITHUB_INSTALLATION_ID: ""
+      GITHUB_PRIVATE_KEY_PATH: ""
+      GITHUB_TEST_API_URL: ""
+      E2E_RUN: "false"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Reject local environment files
+        run: |
+          node --input-type=module <<'NODE'
+          import { readdirSync } from 'node:fs';
+          const forbidden = readdirSync('.').filter(name => name.toLowerCase().startsWith('.env') && name !== '.env.example');
+          if (forbidden.length) {
+            console.error('Only .env.example may be present in the source checkout.');
+            process.exit(1);
+          }
+          NODE
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Generate Next.js route types
+        run: npx next typegen
+
+      - name: Check TypeScript
+        run: npm run typecheck
+
+      # Vitest creates data/test-unit.db and other test-only paths in this fresh checkout.
+      # These are separate from both the CI build database and the live community database.
+      - name: Run business and storage tests
+        run: npm test
+
+      - name: Build website
+        run: npm run build
+
+      # Browser tests require Mailpit and a dedicated test server. Run them locally
+      # with npm run test:e2e; this workflow does not connect to SMTP or a GitHub App.
