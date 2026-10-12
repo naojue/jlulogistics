@@ -21,9 +21,6 @@ jobs:
     env:
       CI: "true"
       NEXT_TELEMETRY_DISABLED: "1"
-      DATABASE_URL: file:${{ runner.temp }}/zhiye-ci/build.db
-      STORAGE_DIR: ${{ runner.temp }}/zhiye-ci/files
-      PROJECT_TEMP_DIR: ${{ runner.temp }}/zhiye-ci/project-tasks
       BETTER_AUTH_URL: http://127.0.0.1:3000
       BETTER_AUTH_SECRET: ci-only-placeholder-secret-at-least-thirty-two-characters
       SMTP_HOST: 127.0.0.1
@@ -62,6 +59,22 @@ jobs:
             console.error('Only .env.example may be present in the source checkout.');
             process.exit(1);
           }
+          NODE
+
+      - name: Configure isolated data paths
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, mkdirSync } from 'node:fs';
+          import { join } from 'node:path';
+          const directory = join(process.env.RUNNER_TEMP, 'zhiye-ci');
+          mkdirSync(directory, { recursive: true });
+          const paths = {
+            DATABASE_URL: `file:${join(directory, 'build.db')}`,
+            STORAGE_DIR: join(directory, 'files'),
+            PROJECT_TEMP_DIR: join(directory, 'project-tasks'),
+          };
+          appendFileSync(process.env.GITHUB_ENV,
+            Object.entries(paths).map(([name, value]) => `${name}=${value}\n`).join(''));
           NODE
 
       - name: Install locked dependencies
